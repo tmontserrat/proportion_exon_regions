@@ -1,0 +1,270 @@
+---
+title: "Proportion of exons regions"
+author: "Tomàs Montserrat Ayuso"
+date: "2021/08/23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# {.tabset}
+
+```{r, message=FALSE}
+library(TxDb.Mmusculus.UCSC.mm10.ensGene)
+library(rtracklayer)
+library(GenomicFeatures)
+library(ggplot2)
+```
+
+In this document we will calculate the proportions of exons regions that span the chromosomes in *Mus musculus*. We are interested in doing two calculations:  
+
+- What proportion of the chromosome is covered by exons, no matter the strand.  
+- What proportion of nucleotides are covered by exons.   
+
+We start by calculating it for a single chromosome and then for each of the chromosomes, ending with a visualization of the results.  
+
+We will use the genome of *Mus musculus* version *mm10* from UCSC.  
+
+---
+
+## Proportion of exons regions for a single chromosome
+
+First of all, we load the data:  
+
+```{r}
+txdb <- TxDb.Mmusculus.UCSC.mm10.ensGene
+```
+
+And now we get the exons:  
+
+```{r}
+exons <- exons(txdb)
+exons
+```
+
+We will work with chromosome 1 for simplicity:  
+
+```{r}
+chr1_exons <- exons[seqnames(exons) == "chr1"]
+chr1_exons
+```
+
+We have to collapse our exons ranges ignoring strands (if we are not interested in which strand we have the exons):  
+
+```{r}
+chr1_exons_collapsed <- reduce(chr1_exons, ignore.strand=TRUE)
+```
+
+Then, we just have to get the total width of the exons and the chromosome and divide them:  
+
+```{r}
+# Total width
+exons_total_width <- sum(width(chr1_exons_collapsed))
+chr1_length <- seqlengths(txdb)["chr1"]
+
+# Proportion
+exons_total_width/chr1_length
+```
+
+### Proportion of nucleotides covered by exons
+
+If we mind which is the proportion of **nucleotides** covered by exons, then we can't ignore the strand and, actually we have to take into account that the length of the chromosome will be doubled:  
+
+```{r}
+# We do not have to ignore strands
+chr1_exons_collapsed_strands <- reduce(chr1_exons, ignore.strand=FALSE)
+
+# Calculate the total width and total length of nucelotides of chromosome
+exons_total_width_strand <- sum(width(chr1_exons_collapsed_strands))
+chr1_nucleotides <- seqlengths(txdb)["chr1"]*2
+
+# Calculate the proportion exon nucleotide/total nucleotides
+exons_total_width_strand/chr1_nucleotides
+```
+
+## Proportion of exons regions for each chromosome
+
+Let's do the same calculus for each chromosome. First, we split our exons by chromosome:  
+
+```{r}
+exons_split_chr <- split(exons, seqnames(exons))
+```
+
+Here we have lots of sequences that are not finished, so let's select only the chromosomes:  
+
+```{r}
+# Extract the names of the sequences
+chr_names <- names(exons_split_chr)
+
+# Find those sequences names not belonging to a full chromosome
+chr_index <- grep(pattern="_",
+                  x=chr_names)
+
+# Select chromosome names
+chr_names <- chr_names[-chr_index]
+
+# Check chromosome names
+exons_split_chr <- exons_split_chr[names(exons_split_chr) == chr_names]
+```
+
+Now we can apply `reduce()` for all the elements of the list:  
+
+```{r}
+exons_split_chr_collapsed <- lapply(exons_split_chr, reduce, ignore.strand=TRUE)
+```
+
+Then, we can find the length of the exons for each chromosome:  
+
+```{r}
+exons_split_chr_length <- sapply(exons_split_chr_collapsed, 
+                                 function(x) sum(width(x)))
+```
+
+Finally, we just have to calculate the proportion of exons in each chromosome:  
+
+```{r}
+# Create ranges for chromosomes
+chr_ranges <- GRanges(seqnames=chr_names,
+                      IRanges(start=1, end=seqlengths(exons)[names(seqlengths(exons))==chr_names]))
+
+# Split these ranges by chromosome
+chr_ranges_split <- split(chr_ranges, seqnames(chr_ranges))
+
+# Calculate lengths for each chromosome
+chr_length <- sapply(chr_ranges_split, function(x) sum(width(x)))
+
+# Calculate exon proportions for each chromosome
+exon_proportions <- exons_split_chr_length/chr_length
+exon_proportions
+```
+
+We can visualize the data with a simple bar plot:  
+
+```{r}
+# We change the names of our chromosomes to make the visualization simpler
+names(exon_proportions) <- sub(pattern="chr([1-9]*|X|Y)", replacement="\\1", x=names(exon_proportions))
+
+# Create the dataframe for using ggplot
+chr_exon_prop_df <- data.frame(chr=names(exon_proportions), 
+                               prop=exon_proportions)
+
+# Remove row names
+rownames(chr_exon_prop_df) = NULL
+
+# Create the correct order of the chromosomes
+chr_order<-c(paste(1:19,sep=""),"X","Y","M")
+chr_exon_prop_df$chr <- factor(chr_exon_prop_df$chr, levels=chr_order)
+
+# Create the bar plot
+ggplot(data=chr_exon_prop_df, aes(x=chr, y=prop)) +
+  geom_bar(stat="identity", color="black", fill="dodgerblue") +
+  labs(x="Chromosomes", y="Proportion of exonic regions")
+```
+
+We can remove the mitochondrial chromosome for easily comparing the rest of chromosomes:  
+
+```{r}
+# Remove mitochondrial chromosome while creating the dataframe for ggplot
+chr_exon_prop_df_noM <- data.frame(chr=names(exon_proportions)[names(exon_proportions) !="M"], 
+                                   prop=exon_proportions[names(exon_proportions) != "M"])
+
+# Remove row names
+rownames(chr_exon_prop_df) = NULL
+
+# Create the correct order of the chromosomes
+chr_order<-c(paste(1:19,sep=""),"X","Y")
+chr_exon_prop_df_noM$chr <- factor(chr_exon_prop_df_noM$chr, levels=chr_order)
+
+# Create the bar plot
+ggplot(data=chr_exon_prop_df_noM, aes(x=chr, y=prop)) +
+  geom_bar(stat="identity", color="black", fill="dodgerblue") +
+  labs(x="Chromosomes", y="Proportion of exonic regions")
+```
+
+
+### Proportion of nucleotides covered by exons
+
+The workflow is analogous as for a single chromosome:  
+
+```{r}
+# Do not ignore strand when merging exons regions
+exons_split_chr_collapsed <- lapply(exons_split_chr, reduce, ignore.strand=FALSE)
+
+# Calculate length of each exon region
+exons_split_chr_length <- sapply(exons_split_chr_collapsed, 
+                                 function(x) sum(width(x)))
+
+# Create ranges for chromosomes, doubling their length to 
+# take account of both strands
+chr_ranges <- GRanges(seqnames=chr_names,
+                      IRanges(start=1, 
+                              end=(seqlengths(exons)[names(seqlengths(exons))==chr_names])*2))
+
+# Split these ranges by chromosome
+chr_ranges_split <- split(chr_ranges, seqnames(chr_ranges))
+
+# Calculate lengths for each chromosome
+chr_length <- sapply(chr_ranges_split, function(x) sum(width(x)))
+
+# Calculate exon proportions for each chromosome
+exon_proportions <- exons_split_chr_length/chr_length
+exon_proportions
+```
+
+We can visualize the data with a simple bar plot:  
+
+```{r}
+# We change the names of our chromosomes to make the visualization simpler
+names(exon_proportions) <- sub(pattern="chr([1-9]*|X|Y)", replacement="\\1", x=names(exon_proportions))
+
+# Create the dataframe for using ggplot
+chr_exon_prop_df <- data.frame(chr=names(exon_proportions), 
+                               prop=exon_proportions)
+
+# Remove row names
+rownames(chr_exon_prop_df) = NULL
+
+# Create the correct order of the chromosomes
+chr_order<-c(paste(1:19,sep=""),"X","Y","M")
+chr_exon_prop_df$chr <- factor(chr_exon_prop_df$chr, levels=chr_order)
+
+# Create the bar plot
+ggplot(data=chr_exon_prop_df, aes(x=chr, y=prop)) +
+  geom_bar(stat="identity", color="black", fill="dodgerblue") +
+  labs(x="Chromosomes", y="Proportion of exonic regions")
+```
+
+Again, we can remove the mitochondrial chromosome for easily comparing the rest of chromosomes:  
+
+```{r}
+# Remove mitochondrial chromosome while creating the dataframe for ggplot
+chr_exon_prop_df_noM <- data.frame(chr=names(exon_proportions)[names(exon_proportions) !="M"], 
+                                   prop=exon_proportions[names(exon_proportions) != "M"])
+
+# Remove row names
+rownames(chr_exon_prop_df) = NULL
+
+# Create the correct order of the chromosomes
+chr_order<-c(paste(1:19,sep=""),"X","Y")
+chr_exon_prop_df_noM$chr <- factor(chr_exon_prop_df_noM$chr, levels=chr_order)
+
+# Create the bar plot
+ggplot(data=chr_exon_prop_df_noM, aes(x=chr, y=prop)) +
+  geom_bar(stat="identity", color="black", fill="dodgerblue") +
+  labs(x="Chromosomes", y="Proportion of exonic regions")
+```
+
+
+## Conclusions
+
+The proportion of exons regions in the mitochondrial chromosome is very high. Actually, almost all the mitochondrial chromosome is coding (ignoring strand). Among the rest of chromosomes, it is interesting how low is the proportion of exons regions in the Y chromosome. Also, it seems that the 11 chromosome has a slightly higher proportion of exons regions.  
+
+#
+
+---
+
+```{r}
+sessionInfo()
+```
