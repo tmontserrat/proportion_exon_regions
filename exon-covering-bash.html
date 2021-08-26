@@ -100,7 +100,9 @@ $ echo $chr1_width
 <p>We select all exons not belonging to pseudogenes:</p>
 <pre><code>$ bioawk -c gff &#39;$feature ~ /exon/ {print $seqname,$start,$end,$score,$filter,$9}&#39; Mus_musculus.GRCm39.104.gtf | grep -v &quot;pseudogene&quot; | cut -f1,2,3,4,5 | head -n2
 1   150956201   150958296   .   +
-1   108344807   108347562   .   +</code></pre>
+1   108344807   108347562   .   +
+
+$ bioawk -c gff &#39;$feature ~ /exon/ {print $seqname,$start,$end,$score,$filter,$9}&#39; Mus_musculus.GRCm39.104.gtf | grep -v &quot;pseudogene&quot; | cut -f1,2,3,4,5 &gt; exons-genome.bed</code></pre>
 <p>Note that now we are working in the <strong>mm_39</strong> genome version.</p>
 <h2 id="sorting-and-mergin-exons-ranges">Sorting and mergin exons ranges</h2>
 <p>First, we sort by chromosome and by start position:</p>

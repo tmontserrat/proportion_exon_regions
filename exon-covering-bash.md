@@ -135,6 +135,8 @@ We select all exons not belonging to pseudogenes:
     1	150956201	150958296	.	+
     1	108344807	108347562	.	+
 
+    $ bioawk -c gff '$feature ~ /exon/ {print $seqname,$start,$end,$score,$filter,$9}' Mus_musculus.GRCm39.104.gtf | grep -v "pseudogene" | cut -f1,2,3,4,5 > exons-genome.bed
+
 Note that now we are working in the **mm_39** genome version. 
 
 ## Sorting and mergin exons ranges
