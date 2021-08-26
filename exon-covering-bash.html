@@ -1,10 +1,20 @@
 <h1 id="percentage-of-genome-covered-by-exons-not-in-pseudogenes">Percentage of genome covered by exons not in pseudogenes</h1>
 <h2 id="preparing-files">Preparing files</h2>
-<p>Will need the GFF file for mm10/GR38.75 and the txt file with the sequence information.</p>
+<p>We will need the GFF file for mm10/GR38.75 and the txt file with the sequence information.</p>
 <ul>
 <li><em>Mus_musculus.GRCm38.75_chr1.gtf.gz</em><br />
 </li>
 <li><em>Mus_musculus.GRCm38_genome.txt</em></li>
+</ul>
+<p>Both files comes from <a href="https://github.com/vsbuffalo/bds-files/tree/master/chapter-09-working-with-range-data" class="uri">https://github.com/vsbuffalo/bds-files/tree/master/chapter-09-working-with-range-data</a> and, as the README file in this repository says, you can get the data following this instructions:</p>
+<ul>
+<li><p>The first file comes from <a href="http://ftp.ensembl.org/pub/release-75/gtf/mus_musculus/" class="uri">http://ftp.ensembl.org/pub/release-75/gtf/mus_musculus/</a> and then we have selected those registers of the chromosome 1:</p>
+<pre><code>  # Ref.: https://github.com/vsbuffalo/bds-files/tree/master/chapter-09-working-with-range-data
+  gzcat Mus_musculus.GRCm38.75.gtf.gz | egrep &quot;^(1\t|#)&quot; | gzip &gt; Mus_musculus.GRCm38.75_chr1.gtf.gf</code></pre></li>
+<li><p>The second file comes from:</p>
+<pre><code>  # Ref.: https://github.com/vsbuffalo/bds-files/tree/master/chapter-09-working-with-range-data
+  curl ftp://ftp.ensembl.org/pub/release-75/fasta/mus_musculus/dna/Mus_musculus.GRCm38.75.dna_rm.toplevel.fa.gz \
+  bioawk -c fastx &#39;{print $name&quot;\t&quot;length($seq)}&#39; &gt; Mus_musculus.GRCm38_genome.txt</code></pre></li>
 </ul>
 <h2 id="unzip-gff-files">Unzip GFF files</h2>
 <p>First of all, we have to unzip our GFF file with the features of mm10:</p>
@@ -75,6 +85,17 @@ $ echo $chr1_width
 <pre><code>$ echo &quot;$exons_width/$chr1_width&quot; | bc -l
 .02767779427568160143</code></pre>
 <h1 id="percentage-of-the-whole-genome-covered-by-exons-not-in-pseudogenes">Percentage of the whole genome covered by exons not in pseudogenes</h1>
+<h1 id="preparing-files-1">Preparing files</h1>
+<p>We will need the GFF file for mm10/GR38.75 and the txt file with the sequence information.</p>
+<ul>
+<li><em>Mus_musculus.GRCm39.104.gtf.gz</em><br />
+</li>
+<li><em>Mus_musculus.GRCm39_genome.txt</em></li>
+</ul>
+<p>The first file comes from $ curl http://ftp.ensembl.org/pub/release-104/gtf/mus_musculus/Mus_musculus.GRCm39.104.gtf.gz<br />
+&gt; Mus_musculus.GRCm39.104.gtf.gz</p>
+<p>The second file comes from:</p>
+<pre><code>$ curl http://ftp.ensembl.org/pub/release-104/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna_sm.toplevel.fa.gz | bioawk -c fastx &#39;{print $name&quot;\t&quot;length($seq)}&#39; &gt; Mus_musculus.GRCm39_genome.txt  </code></pre>
 <h2 id="extracting-exons-ranges">Extracting exons ranges</h2>
 <p>We select all exons not belonging to pseudogenes:</p>
 <pre><code>$ bioawk -c gff &#39;$feature ~ /exon/ {print $seqname,$start,$end,$score,$filter,$9}&#39; Mus_musculus.GRCm39.104.gtf | grep -v &quot;pseudogene&quot; | cut -f1,2,3,4,5 | head -n2
@@ -90,7 +111,7 @@ $ echo $chr1_width
 <p>We select only those registers about chromosome, not scaffolds or other sequences:</p>
 <pre><code>$ bioawk &#39;$1 ~ &quot;^[1-9XYM]&quot; {print $0}&#39; exons-genome-merged.bed &gt; exons-genome-merged-chr.bed</code></pre>
 <p>Now we’ll do the same but for sequences lengths:</p>
-<pre><code>$ grep -E &quot;^[1-9XYM]T*[^A-Za-z]&quot; Mus_musculus.GRCm38_genome.txt</code></pre>
+<pre><code>$ grep -E &quot;^[1-9XYM]T*[^A-Za-z]&quot; Mus_musculus.GRCm39_genome.txt &gt; mm_genome-chr.txt</code></pre>
 <h2 id="computing-the-total-width-of-exons-not-in-a-pseudogene-for-the-whole-genome">Computing the total width of exons not in a pseudogene for the whole genome</h2>
 <pre><code>$ bioawk -c bed &#39;BEGIN{ s = 0 }; {s += ($end-$start)}; END{ print &quot;width: &quot; s}&#39; exons-genome-merged-chr.bed
 width: 117833254</code></pre>
@@ -98,19 +119,19 @@ width: 117833254</code></pre>
 <pre><code>$ exons_width=$(bioawk -c bed &#39;BEGIN{ s = 0 }; {s += ($end-$start)}; END{ print s}&#39; exons-genome-merged-chr.bed)</code></pre>
 <h2 id="computing-the-total-width-for-the-whole-genome">Computing the total width for the whole genome</h2>
 <pre><code>$ awk &#39;BEGIN{s = 0 }; {s += $2}; END{print &quot;width: &quot; s}&#39; mm_genome-chr.txt
-width: 4.15195e+09</code></pre>
+width: 2.72343e+09</code></pre>
 <p>Again, we can save it in a variable for later use:</p>
 <pre><code>$ genome_width=$(awk &#39;BEGIN{s = 0 }; {s += $2}; END{print s}&#39; mm_genome-chr.txt)</code></pre>
 <p>And we change the scientific notation format for another that <code>bc</code> can understant:</p>
 <pre><code>$ echo &quot;$genome_width&quot; | sed -e &#39;s/e+/\*10\^/&#39;
-4.15195*10^09
+2.72343*10^09
 
 $ genome_width=$(echo &quot;$genome_width&quot; | sed -e &#39;s/e+/\*10\^/&#39;)
 
 $ echo &quot;$genome_width&quot; | bc
-4151950000.00000
+2723430000.00000
 
 $ genome_width=$(echo &quot;$genome_width&quot; | bc)</code></pre>
 <h2 id="compute-the-result">Compute the result</h2>
 <pre><code>$ echo &quot;$exons_width/$genome_width&quot; | bc -l
-.02838021989667505629</code></pre>
+.04326648894959664834</code></pre>
