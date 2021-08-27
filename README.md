@@ -1,4 +1,4 @@
-# proportion_exon_regions
+# Proportion of exon regions
 A little study using R and Bioconductor of the proportion of exon regions among chromosomes in mouse:  
 
 - exon-covering-chr1-R.R  
